@@ -118,12 +118,12 @@ h1{font-size:26px;line-height:1.1;letter-spacing:-.7px;text-align:center;margin:
 
   <form class="lead-form" id="leadForm" novalidate>
     <div class="field">
-      <label for="leadName">Name</label>
-      <input id="leadName" name="name" type="text" placeholder="Your name" autocomplete="given-name" maxlength="60" required>
+      <label for="leadName">Name (optional)</label>
+      <input id="leadName" name="name" type="text" placeholder="Your name" autocomplete="given-name" maxlength="60">
     </div>
     <div class="field">
-      <label for="leadAge">Age</label>
-      <input id="leadAge" name="age" type="number" inputmode="numeric" placeholder="Age" min="18" max="99" required>
+      <label for="leadAge">Age (optional)</label>
+      <input id="leadAge" name="age" type="number" inputmode="numeric" placeholder="Age" min="1" max="99">
     </div>
     <p class="form-error" id="formError" role="alert" aria-live="polite"></p>
   </form>
@@ -145,7 +145,6 @@ h1{font-size:26px;line-height:1.1;letter-spacing:-.7px;text-align:center;margin:
 (function () {
   'use strict';
   var TELEGRAM_URL = 'https://t.me/+0miVMqPqJxc2YmY1';
-  var MIN_AGE = 18, MAX_AGE = 99;
 
   var form = document.getElementById('leadForm');
   var btn = document.getElementById('joinBtn');
@@ -184,18 +183,16 @@ h1{font-size:26px;line-height:1.1;letter-spacing:-.7px;text-align:center;margin:
     var name = nameInput.value.trim();
     var age = parseInt(ageInput.value, 10);
 
-    if (name.length < 2) { showError(nameInput, 'Please enter your name.'); return; }
-    if (isNaN(age) || age < MIN_AGE || age > MAX_AGE) {
-      showError(ageInput, 'Please enter a valid age (' + MIN_AGE + '+).');
-      return;
-    }
-    showError(null, '');
+    // Name and age are optional: join works even if both are empty.
+    var lead = {};
+    if (name) lead.name = name;
+    if (!isNaN(age) && age >= 1 && age <= 99) lead.age = age;
 
     redirected = true;
     btn.disabled = true;
     label.textContent = 'OPENING TELEGRAM…';
 
-    saveLead({name: name, age: age});
+    if (lead.name || lead.age) saveLead(lead);
     trackSubscribe();
 
     // Direct navigation is more reliable on mobile than window.open.
