@@ -49,8 +49,19 @@ h1{font-size:26px;line-height:1.1;letter-spacing:-.7px;text-align:center;margin:
 .join-btn svg{width:23px;height:23px;flex:none}
 .shine{position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 20%,#ffffff16 48%,transparent 72%)}
 .join-sub{font-size:10px;line-height:1.45;text-align:center;color:#9baebe;margin:9px 4px 0}
-.timer-note{margin-top:12px;width:100%;border:1px solid #ffffff12;background:#ffffff06;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:center;gap:8px;color:#b9c9d8;font-size:11px}
-.timer-note strong{color:var(--gold);font-variant-numeric:tabular-nums}
+
+/* Name + Age form */
+.lead-form{margin-top:12px;width:100%;border:1px solid #ffffff12;background:#ffffff06;border-radius:12px;padding:12px;display:grid;grid-template-columns:1fr 92px;gap:10px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:11px;color:#b9c9d8}
+.field input{width:100%;height:42px;padding:0 12px;border-radius:10px;border:1px solid #ffffff1f;background:#0a111b;color:#f4f8fc;font:inherit;font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s}
+.field input::placeholder{color:#62758a}
+.field input:focus-visible{border-color:var(--mint);box-shadow:0 0 0 3px #37e5d826}
+.field input.invalid{border-color:#ff7b7b}
+.field input[type=number]{-moz-appearance:textfield;appearance:textfield}
+.field input[type=number]::-webkit-outer-spin-button,.field input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.form-error{grid-column:1/-1;margin:0;min-height:14px;font-size:11px;color:#ff9b9b}
+
 .points{width:100%;margin:18px 0 14px;padding:14px 14px 12px;border:1px solid #b4d7e41a;border-radius:16px;background:linear-gradient(135deg,#111e2bdf,#0b121ce8);box-shadow:0 12px 35px #0002}
 .points-title{font-size:9px;letter-spacing:1.8px;color:#8fa7b7;font-weight:800;margin:0 0 11px}
 .point{display:flex;align-items:flex-start;gap:9px;font-size:11px;line-height:1.4;color:#dbe5ed;margin:9px 0}
@@ -97,13 +108,25 @@ h1{font-size:26px;line-height:1.1;letter-spacing:-.7px;text-align:center;margin:
 
   <p class="intro">Join the free <span class="grad">Trading Education</span><br>community on Telegram.</p>
 
-  <button class="join-btn" id="joinBtn" type="button" disabled>
+  <!-- The button sits outside the form but submits it via the form="leadForm" attribute. -->
+  <button class="join-btn" id="joinBtn" type="submit" form="leadForm" disabled>
     <span class="shine"></span>
     <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M21.5 3.5L2.7 10.8c-1.2.5-1.2 1.2-.2 1.5l4.8 1.5 1.9 5.7c.2.6.4.9.9.9.4 0 .6-.2.9-.5l2.2-2.1 4.6 3.4c.8.5 1.4.2 1.6-.7l3-14.1c.3-1.2-.5-1.7-1.4-1.3zM8.3 13.5l9.3-5.9c.4-.3.8-.1.5.2l-7.9 7.2-.3 3.2-1.4-4.7z"/></svg>
     <span id="joinBtnLabel">JOIN FREE TELEGRAM</span>
   </button>
   <p class="join-sub">Free educational community · No investment advice · Trading involves risk</p>
-  <div class="timer-note"><span>Telegram redirect in</span> <strong id="countdown">6 seconds</strong></div>
+
+  <form class="lead-form" id="leadForm" novalidate>
+    <div class="field">
+      <label for="leadName">Name</label>
+      <input id="leadName" name="name" type="text" placeholder="Your name" autocomplete="given-name" maxlength="60" required>
+    </div>
+    <div class="field">
+      <label for="leadAge">Age</label>
+      <input id="leadAge" name="age" type="number" inputmode="numeric" placeholder="Age" min="18" max="99" required>
+    </div>
+    <p class="form-error" id="formError" role="alert" aria-live="polite"></p>
+  </form>
 
   <section class="points">
     <p class="points-title">WHAT YOU CAN LEARN</p>
@@ -122,58 +145,74 @@ h1{font-size:26px;line-height:1.1;letter-spacing:-.7px;text-align:center;margin:
 (function () {
   'use strict';
   var TELEGRAM_URL = 'https://t.me/+0miVMqPqJxc2YmY1';
+  var MIN_AGE = 18, MAX_AGE = 99;
+
+  var form = document.getElementById('leadForm');
   var btn = document.getElementById('joinBtn');
   var label = document.getElementById('joinBtnLabel');
-  var countdown = document.getElementById('countdown');
+  var nameInput = document.getElementById('leadName');
+  var ageInput = document.getElementById('leadAge');
+  var errorBox = document.getElementById('formError');
   var redirected = false;
-  var pageReady = false;
-  var remaining = 6;
-  var timer = null;
 
-  // One Subscribe event per deliberate button click. This measures the click intent,
-  // not a confirmed Telegram join (Telegram does not send join confirmation to this page).
+  // One Subscribe event per submit. This measures the click intent, not a confirmed
+  // Telegram join. Name and age are NOT sent to Meta.
   function trackSubscribe() {
     if (typeof window.fbq === 'function') {
       window.fbq('track', 'Subscribe', {content_name: 'join_telegram'});
     }
   }
 
-  function goTelegram(source) {
+  // Hook: send the lead to your own backend / Google Sheet here if you want to keep it.
+  function saveLead(lead) {
+    // Example:
+    // fetch('YOUR_ENDPOINT_URL', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    //   body: JSON.stringify(lead), keepalive: true});
+  }
+
+  function showError(input, message) {
+    nameInput.classList.remove('invalid');
+    ageInput.classList.remove('invalid');
+    if (input) { input.classList.add('invalid'); input.focus(); }
+    errorBox.textContent = message || '';
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
     if (redirected) return;
+
+    var name = nameInput.value.trim();
+    var age = parseInt(ageInput.value, 10);
+
+    if (name.length < 2) { showError(nameInput, 'Please enter your name.'); return; }
+    if (isNaN(age) || age < MIN_AGE || age > MAX_AGE) {
+      showError(ageInput, 'Please enter a valid age (' + MIN_AGE + '+).');
+      return;
+    }
+    showError(null, '');
+
     redirected = true;
-    if (timer) window.clearInterval(timer);
     btn.disabled = true;
     label.textContent = 'OPENING TELEGRAM…';
-    countdown.textContent = source === 'click' ? 'Opening now' : 'Opening now';
 
-    // Direct navigation is more reliable on mobile than window.open after a timeout.
-    window.location.href = TELEGRAM_URL;
-  }
-
-  btn.addEventListener('click', function (event) {
-    if (!pageReady || redirected || event.isTrusted === false) return;
+    saveLead({name: name, age: age});
     trackSubscribe();
-    goTelegram('click');
+
+    // Direct navigation is more reliable on mobile than window.open.
+    window.location.href = TELEGRAM_URL;
   });
 
-  window.addEventListener('load', function () {
-    window.setTimeout(function () {
-      pageReady = true;
-      btn.disabled = false;
-      timer = window.setInterval(function () {
-        if (redirected) return;
-        remaining -= 1;
-        countdown.textContent = remaining + (remaining === 1 ? ' second' : ' seconds');
-        if (remaining <= 0) goTelegram('auto');
-      }, 1000);
-    }, 250);
+  [nameInput, ageInput].forEach(function (el) {
+    el.addEventListener('input', function () {
+      el.classList.remove('invalid');
+      errorBox.textContent = '';
+    });
   });
 
-  // If the browser does not fire load (e.g. a slow external image), still enable
-  // the CTA and start the six-second countdown from DOM readiness.
-  if (document.readyState === 'complete') {
-    window.dispatchEvent(new Event('load'));
-  }
+  // Enable the button once the page is ready.
+  function enable() { btn.disabled = false; }
+  if (document.readyState === 'complete') { enable(); }
+  else { window.addEventListener('load', function () { window.setTimeout(enable, 250); }); }
 })();
 </script>
 </body>
